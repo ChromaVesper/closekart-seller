@@ -1,0 +1,11 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      // TEMPORARY: Allow all authenticated uploads while CORS is being configured
+      // Replace with stricter rules after CORS is fixed
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}
