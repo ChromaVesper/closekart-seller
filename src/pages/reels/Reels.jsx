@@ -16,7 +16,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export const Reels = () => {
-  const { user } = useAuth();
+  const { user, sellerData } = useAuth();
   const [reels, setReels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -102,9 +102,13 @@ export const Reels = () => {
 
       const reelData = {
         caption: formData.caption,
-        tags: formData.tags.split(',').map((tag) => tag.trim()),
+        tags: formData.tags ? formData.tags.split(',').map((tag) => tag.trim()) : [],
         videoUrl: formData.videoUrl,
         sellerId: user.uid,
+        shopName: sellerData?.shopName || 'Unknown Shop',
+        latitude: sellerData?.latitude || null,
+        longitude: sellerData?.longitude || null,
+        deliveryRadius: sellerData?.deliveryRadius || null,
         likes: 0,
         comments: 0,
         shares: 0,

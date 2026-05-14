@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, Filter, Upload } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Filter, Upload, Package } from 'lucide-react';
 import { DashboardLayout } from '../../components/common/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
 import { db, storage } from '../../config/firebase';
@@ -17,7 +17,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export const Products = () => {
-  const { user } = useAuth();
+  const { user, sellerData } = useAuth();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -30,8 +30,9 @@ export const Products = () => {
     description: '',
     category: 'Clothing',
     price: '',
+    discountPrice: '',
     stock: '',
-    location: '',
+    tags: '',
     images: [],
   });
 
@@ -121,8 +122,14 @@ export const Products = () => {
       const productData = {
         ...formData,
         price: parseFloat(formData.price),
+        discountPrice: formData.discountPrice ? parseFloat(formData.discountPrice) : null,
         stock: parseInt(formData.stock),
+        tags: formData.tags ? formData.tags.split(',').map(t => t.trim()) : [],
         sellerId: user.uid,
+        shopName: sellerData?.shopName || 'Unknown Shop',
+        latitude: sellerData?.latitude || null,
+        longitude: sellerData?.longitude || null,
+        deliveryRadius: sellerData?.deliveryRadius || null,
         views: 0,
         soldCount: 0,
         createdAt: editingId ? undefined : serverTimestamp(),
@@ -149,8 +156,9 @@ export const Products = () => {
         description: '',
         category: 'Clothing',
         price: '',
+        discountPrice: '',
         stock: '',
-        location: '',
+        tags: '',
         images: [],
       });
       setShowForm(false);
@@ -273,6 +281,23 @@ export const Products = () => {
               />
             </div>
 
+            {/* Discount Price */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Discount Price (₹)
+              </label>
+              <input
+                type="number"
+                name="discountPrice"
+                value={formData.discountPrice}
+                onChange={handleInputChange}
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
             {/* Stock */}
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2">
@@ -289,17 +314,17 @@ export const Products = () => {
               />
             </div>
 
-            {/* Location */}
+            {/* Tags */}
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Location
+                Tags (comma-separated)
               </label>
               <input
                 type="text"
-                name="location"
-                value={formData.location}
+                name="tags"
+                value={formData.tags}
                 onChange={handleInputChange}
-                placeholder="e.g., Mumbai, Maharashtra"
+                placeholder="e.g., summer, casual, new"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -375,8 +400,9 @@ export const Products = () => {
                     description: '',
                     category: 'Clothing',
                     price: '',
+                    discountPrice: '',
                     stock: '',
-                    location: '',
+                    tags: '',
                     images: [],
                   });
                 }}

@@ -3,7 +3,7 @@ import { ShoppingCart, Eye } from 'lucide-react';
 import { DashboardLayout } from '../../components/common/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
 import { db } from '../../config/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 
 export const Orders = () => {
@@ -40,6 +40,17 @@ export const Orders = () => {
 
     fetchOrders();
   }, [user]);
+
+  const handleStatusChange = async (orderId, newStatus) => {
+    try {
+      const orderRef = doc(db, 'orders', orderId);
+      await updateDoc(orderRef, { status: newStatus });
+      setOrders(orders.map(order => order.id === orderId ? { ...order, status: newStatus } : order));
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      alert('Failed to update status');
+    }
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -95,6 +106,9 @@ export const Orders = () => {
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                     Date
                   </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -123,6 +137,20 @@ export const Orders = () => {
                       {order.createdAt
                         ? format(order.createdAt.toDate(), 'MMM dd, yyyy')
                         : '-'}
+                    </td>
+                    <td className="px-6 py-4">
+                      <select
+                        value={order.status || 'pending'}
+                        onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                        className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="accepted">Accepted</option>
+                        <option value="packed">Packed</option>
+                        <option value="shipped">Shipped</option>
+                        <option value="delivered">Delivered</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
                     </td>
                   </tr>
                 ))}

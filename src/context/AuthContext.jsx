@@ -4,6 +4,8 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
 } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -83,11 +85,20 @@ export const AuthProvider = ({ children }) => {
       setSellerData(sellerData);
       return { success: true, user: userCredential.user };
     } catch (err) {
-      const errorMessage = err.code === 'auth/email-already-in-use'
-        ? 'Email already in use'
-        : err.code === 'auth/weak-password'
-        ? 'Password should be at least 6 characters'
-        : 'Signup failed. Please try again.';
+      console.error("Firebase Signup Error: ", err);
+      let errorMessage = 'Signup failed. Please try again.';
+      
+      if (err.code === 'auth/email-already-in-use') {
+        errorMessage = 'This email is already registered. Please sign in instead.';
+      } else if (err.code === 'auth/weak-password') {
+        errorMessage = 'Password is too weak. Please use at least 6 characters.';
+      } else if (err.code === 'auth/invalid-email') {
+        errorMessage = 'Please enter a valid email address.';
+      } else if (err.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
       
       setError(errorMessage);
       return { success: false, error: errorMessage };
@@ -136,11 +147,82 @@ export const AuthProvider = ({ children }) => {
         return { success: true, user: userCredential.user };
       }
     } catch (err) {
-      const errorMessage = err.code === 'auth/user-not-found'
-        ? 'No account found with this email'
-        : err.code === 'auth/wrong-password'
-        ? 'Incorrect password'
-        : 'Login failed. Please try again.';
+      console.error("Firebase Login Error: ", err);
+      let errorMessage = 'Login failed. Please try again.';
+      
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+        errorMessage = 'Invalid email or password. Please try again.';
+      } else if (err.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed login attempts. Please try again later.';
+      } else if (err.code === 'auth/invalid-email') {
+        errorMessage = 'Please enter a valid email address.';
+      } else if (err.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Google Sign In
+  const loginWithGoogle = useCallback(async () => {
+    try {
+      setError(null);
+      setLoading(true);
+
+      const provider = new GoogleAuthProvider();
+      const userCredential = await signInWithPopup(auth, provider);
+      const uid = userCredential.user.uid;
+
+      // Check if seller document exists
+      const sellerRef = doc(db, 'sellers', uid);
+      const sellerSnap = await getDoc(sellerRef);
+
+      if (sellerSnap.exists()) {
+        setSellerData(sellerSnap.data());
+        return { success: true, user: userCredential.user };
+      } else {
+        // Create seller document if not exists
+        const defaultSellerData = {
+          uid,
+          email: userCredential.user.email,
+          shopName: userCredential.user.displayName || 'My Shop',
+          phoneNumber: userCredential.user.phoneNumber || '',
+          role: 'seller',
+          verified: false,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          profileImage: userCredential.user.photoURL || null,
+          description: '',
+          rating: 0,
+          totalProducts: 0,
+          totalOrders: 0,
+          totalRevenue: 0,
+        };
+        
+        await setDoc(doc(db, 'sellers', uid), defaultSellerData);
+        setSellerData(defaultSellerData);
+        
+        return { success: true, user: userCredential.user };
+      }
+    } catch (err) {
+      console.error("Firebase Google Auth Error: ", err);
+      let errorMessage = 'Google Sign-In failed. Please try again.';
+      
+      if (err.code === 'auth/popup-closed-by-user') {
+        errorMessage = 'Sign-in popup was closed before completing.';
+      } else if (err.code === 'auth/popup-blocked') {
+        errorMessage = 'Sign-in popup was blocked by your browser.';
+      } else if (err.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
       
       setError(errorMessage);
       return { success: false, error: errorMessage };
@@ -201,6 +283,7 @@ export const AuthProvider = ({ children }) => {
     error,
     signup,
     login,
+    loginWithGoogle,
     logout,
     updateProfile,
     isAuthenticated: !!user,

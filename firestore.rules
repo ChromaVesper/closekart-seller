@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Sellers Collection
+    // Anyone can read seller public data. Only the seller themselves can edit their data.
+    match /sellers/{userId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    // Products Collection
+    // Anyone can view products. Only the product owner (seller) can create, update, or delete.
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.data.sellerId == request.auth.uid;
+      allow update: if request.auth != null && resource.data.sellerId == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.sellerId == request.auth.uid;
+    }
+
+    // Reels Collection
+    // Anyone can view reels. Only the reel owner (seller) can create, update, or delete.
+    match /reels/{reelId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.data.sellerId == request.auth.uid;
+      allow update: if request.auth != null && resource.data.sellerId == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.sellerId == request.auth.uid;
+    }
+
+    // Orders Collection
+    // Buyers can create orders and read their own. Sellers can read and update orders assigned to them.
+    match /orders/{orderId} {
+      allow create: if request.auth != null && request.resource.data.buyerId == request.auth.uid;
+      allow read: if request.auth != null && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid);
+      allow update: if request.auth != null && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid);
+      allow delete: if false;
+    }
+
+    // Users Collection (Buyers)
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

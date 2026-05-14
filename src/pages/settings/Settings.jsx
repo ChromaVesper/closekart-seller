@@ -9,6 +9,9 @@ export const Settings = () => {
     shopName: sellerData?.shopName || '',
     description: sellerData?.description || '',
     phoneNumber: sellerData?.phoneNumber || '',
+    latitude: sellerData?.latitude || '',
+    longitude: sellerData?.longitude || '',
+    deliveryRadius: sellerData?.deliveryRadius || '',
   });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -108,6 +111,55 @@ export const Settings = () => {
                   onChange={handleChange}
                   placeholder="Tell customers about your shop..."
                   rows="5"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Location Details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Latitude
+                  </label>
+                  <input
+                    type="number"
+                    name="latitude"
+                    value={formData.latitude}
+                    onChange={handleChange}
+                    placeholder="e.g., 19.0760"
+                    step="0.000001"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Longitude
+                  </label>
+                  <input
+                    type="number"
+                    name="longitude"
+                    value={formData.longitude}
+                    onChange={handleChange}
+                    placeholder="e.g., 72.8777"
+                    step="0.000001"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {/* Delivery Radius */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Delivery Radius (in km)
+                </label>
+                <input
+                  type="number"
+                  name="deliveryRadius"
+                  value={formData.deliveryRadius}
+                  onChange={handleChange}
+                  placeholder="e.g., 5"
+                  min="1"
+                  max="50"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
