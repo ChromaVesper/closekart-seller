@@ -7,11 +7,14 @@ import {
   Eye,
   Plus,
   ArrowRight,
+  FlaskConical,
 } from 'lucide-react';
 import { DashboardLayout } from '../../components/common/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
-import { db } from '../../config/firebase';
+import { db, storage } from '../../config/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { initializeApp, getApps } from 'firebase/app';
 
 export const Dashboard = () => {
   const { user, sellerData } = useAuth();
@@ -22,6 +25,54 @@ export const Dashboard = () => {
     totalViews: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [storageTest, setStorageTest] = useState({ status: 'idle', message: '' });
+
+  // ---- Storage Diagnostic ----
+  const runStorageTest = async () => {
+    setStorageTest({ status: 'running', message: 'Testing storage connection...' });
+    const blob = new Blob(['closekart-storage-test'], { type: 'text/plain' });
+
+    // Try current storage (from firebase.js)
+    try {
+      console.log('[StorageTest] Using storage:', storage?.app?.options?.storageBucket);
+      const testRef = ref(storage, `test/ping-${Date.now()}.txt`);
+      const snap = await uploadBytes(testRef, blob);
+      const url = await getDownloadURL(snap.ref);
+      console.log('[StorageTest] SUCCESS with current bucket! URL:', url);
+      setStorageTest({
+        status: 'success',
+        message: `✅ Storage works! Bucket: ${storage?.app?.options?.storageBucket}`,
+      });
+      return;
+    } catch (err) {
+      console.error('[StorageTest] Current bucket failed:', err.code, err.message);
+    }
+
+    // Try alternate bucket format
+    const currentBucket = storage?.app?.options?.storageBucket || '';
+    const alternateBucket = currentBucket.includes('.appspot.com')
+      ? currentBucket.replace('.appspot.com', '.firebasestorage.app')
+      : currentBucket.replace('.firebasestorage.app', '.appspot.com');
+
+    try {
+      console.log('[StorageTest] Trying alternate bucket:', alternateBucket);
+      const altStorage = getStorage(storage.app, `gs://${alternateBucket}`);
+      const testRef = ref(altStorage, `test/ping-${Date.now()}.txt`);
+      const snap = await uploadBytes(testRef, blob);
+      const url = await getDownloadURL(snap.ref);
+      console.log('[StorageTest] SUCCESS with alternate bucket! URL:', url);
+      setStorageTest({
+        status: 'success',
+        message: `✅ Alternate bucket works: ${alternateBucket}. ⚠️ Update your storageBucket config to this value!`,
+      });
+    } catch (err2) {
+      console.error('[StorageTest] Alternate bucket also failed:', err2.code, err2.message);
+      setStorageTest({
+        status: 'error',
+        message: `❌ Both buckets failed. Error: ${err2.code} — ${err2.message}. Check Firebase Console → Storage rules and ensure the bucket exists.`,
+      });
+    }
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -174,7 +225,40 @@ export const Dashboard = () => {
         </div>
       </div>
 
+      {/* Storage Diagnostic Panel */}
+      <div className="bg-white rounded-xl shadow-sm p-6 border border-amber-200 mb-8">
+        <h3 className="text-lg font-bold text-gray-900 mb-1 flex items-center gap-2">
+          <FlaskConical size={20} className="text-amber-500" />
+          Firebase Storage Diagnostic
+        </h3>
+        <p className="text-sm text-gray-500 mb-4">
+          Run this test to identify the exact storage issue. Open browser console (F12) for full details.
+        </p>
+        <p className="text-xs text-gray-400 mb-3 font-mono">
+          Current bucket: <span className="font-bold text-gray-700">{storage?.app?.options?.storageBucket || 'not set'}</span>
+        </p>
+        <button
+          onClick={runStorageTest}
+          disabled={storageTest.status === 'running'}
+          className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors disabled:opacity-50 text-sm"
+        >
+          {storageTest.status === 'running' ? '🔄 Testing...' : '🧪 Run Storage Test'}
+        </button>
+        {storageTest.message && (
+          <div className={`mt-4 p-4 rounded-lg text-sm font-medium ${
+            storageTest.status === 'success'
+              ? 'bg-green-50 text-green-800 border border-green-200'
+              : storageTest.status === 'error'
+              ? 'bg-red-50 text-red-800 border border-red-200'
+              : 'bg-blue-50 text-blue-800 border border-blue-200'
+          }`}>
+            {storageTest.message}
+          </div>
+        )}
+      </div>
+
       {/* Recent Activity Section */}
+
       <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
         <h3 className="text-xl font-bold text-gray-900 mb-4">Quick Tips</h3>
         <ul className="space-y-3">
