@@ -14,7 +14,7 @@ import {
   updateDoc,
   serverTimestamp,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 export const Products = () => {
   const { user, sellerData } = useAuth();
@@ -24,6 +24,7 @@ export const Products = () => {
   const [editingId, setEditingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -76,38 +77,55 @@ export const Products = () => {
     }));
   };
 
-  // Handle image upload
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
     setUploading(true);
+    setUploadProgress(0);
     const uploadedUrls = [];
 
     try {
-      for (const file of files) {
-        console.log('[Storage] Uploading image:', file.name, file.size, 'bytes');
-        const storageRef = ref(
-          storage,
-          `products/${user.uid}/${Date.now()}-${file.name}`
-        );
-        const snapshot = await uploadBytes(storageRef, file);
-        console.log('[Storage] Upload complete:', snapshot.ref.fullPath);
-        const url = await getDownloadURL(snapshot.ref);
-        console.log('[Storage] Download URL:', url);
-        uploadedUrls.push(url);
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        console.log(`[Storage] Uploading file ${i + 1}/${files.length}:`, file.name, file.size, 'bytes');
+
+        const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
+
+        await new Promise((resolve, reject) => {
+          const uploadTask = uploadBytesResumable(storageRef, file);
+
+          uploadTask.on(
+            'state_changed',
+            (snapshot) => {
+              const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+              console.log(`[Storage] Progress: ${progress}%`);
+              setUploadProgress(progress);
+            },
+            (error) => {
+              console.error('[Storage] Upload error:', error.code, error.message);
+              reject(error);
+            },
+            async () => {
+              const url = await getDownloadURL(uploadTask.snapshot.ref);
+              console.log('[Storage] Upload success! URL:', url);
+              uploadedUrls.push(url);
+              resolve();
+            }
+          );
+        });
       }
 
       setFormData((prev) => ({
         ...prev,
         images: [...prev.images, ...uploadedUrls],
       }));
-      console.log('[Storage] All images uploaded successfully:', uploadedUrls);
     } catch (error) {
-      console.error('[Storage] UPLOAD ERROR:', error.code, error.message);
-      alert(`Upload failed: ${error.message}`);
+      console.error('[Storage] Full error object:', error);
+      alert(`Upload failed: ${error.message || error.code || 'Unknown error'}`);
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -351,11 +369,24 @@ export const Products = () => {
                 <label htmlFor="image-input" className="cursor-pointer flex flex-col items-center gap-2">
                   <Upload className="text-gray-400" size={32} />
                   <span className="text-sm font-semibold text-gray-700">
-                    {uploading ? 'Uploading...' : 'Click to upload images'}
+                    {uploading ? `Uploading... ${uploadProgress}%` : 'Click to upload images'}
                   </span>
                   <span className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB each</span>
                 </label>
               </div>
+
+              {/* Upload Progress Bar */}
+              {uploading && (
+                <div className="mt-3">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">{uploadProgress}% uploaded</p>
+                </div>
+              )}
 
               {/* Image Preview */}
               {formData.images.length > 0 && (

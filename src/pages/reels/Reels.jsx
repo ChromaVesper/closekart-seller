@@ -13,7 +13,7 @@ import {
   addDoc,
   serverTimestamp,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 export const Reels = () => {
   const { user, sellerData } = useAuth();
@@ -21,6 +21,7 @@ export const Reels = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const [formData, setFormData] = useState({
     caption: '',
@@ -60,34 +61,46 @@ export const Reels = () => {
     fetchReels();
   }, [user]);
 
-  // Handle video upload
   const handleVideoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    console.log('[Storage] Video file selected:', file.name, file.size, 'bytes', file.type);
     setUploading(true);
+    setUploadProgress(0);
 
     try {
-      console.log('[Storage] Uploading video:', file.name, file.size, 'bytes');
-      const storageRef = ref(
-        storage,
-        `reels/${user.uid}/${Date.now()}-${file.name}`
-      );
-      const snapshot = await uploadBytes(storageRef, file);
-      console.log('[Storage] Video upload complete:', snapshot.ref.fullPath);
-      const url = await getDownloadURL(snapshot.ref);
-      console.log('[Storage] Video download URL:', url);
+      const storageRef = ref(storage, `reels/${Date.now()}-${file.name}`);
+      console.log('[Storage] Starting video upload to:', storageRef.fullPath);
 
-      setFormData((prev) => ({
-        ...prev,
-        videoUrl: url,
-        videoFile: file,
-      }));
+      await new Promise((resolve, reject) => {
+        const uploadTask = uploadBytesResumable(storageRef, file);
+
+        uploadTask.on(
+          'state_changed',
+          (snapshot) => {
+            const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+            console.log(`[Storage] Video upload progress: ${progress}%`);
+            setUploadProgress(progress);
+          },
+          (error) => {
+            console.error('[Storage] Video upload error:', error.code, error.message);
+            reject(error);
+          },
+          async () => {
+            const url = await getDownloadURL(uploadTask.snapshot.ref);
+            console.log('[Storage] Video upload success! URL:', url);
+            setFormData((prev) => ({ ...prev, videoUrl: url, videoFile: file }));
+            resolve();
+          }
+        );
+      });
     } catch (error) {
-      console.error('[Storage] VIDEO UPLOAD ERROR:', error.code, error.message);
-      alert(`Video upload failed: ${error.message}`);
+      console.error('[Storage] Full video error:', error);
+      alert(`Video upload failed: ${error.message || error.code || 'Unknown error'}`);
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -221,11 +234,24 @@ export const Reels = () => {
                 <label htmlFor="video-input" className="cursor-pointer flex flex-col items-center gap-2">
                   <Upload className="text-gray-400" size={32} />
                   <span className="text-sm font-semibold text-gray-700">
-                    {uploading ? 'Uploading...' : 'Click to upload video'}
+                    {uploading ? `Uploading... ${uploadProgress}%` : 'Click to upload video'}
                   </span>
                   <span className="text-xs text-gray-500">MP4, WebM, Ogg up to 500MB</span>
                 </label>
               </div>
+
+              {/* Upload Progress Bar */}
+              {uploading && (
+                <div className="mt-3">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">{uploadProgress}% uploaded — please wait</p>
+                </div>
+              )}
 
               {formData.videoUrl && (
                 <div className="mt-4">
