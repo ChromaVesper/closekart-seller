@@ -86,12 +86,15 @@ export const Products = () => {
 
     try {
       for (const file of files) {
+        console.log('[Storage] Uploading image:', file.name, file.size, 'bytes');
         const storageRef = ref(
           storage,
           `products/${user.uid}/${Date.now()}-${file.name}`
         );
-        await uploadBytes(storageRef, file);
-        const url = await getDownloadURL(storageRef);
+        const snapshot = await uploadBytes(storageRef, file);
+        console.log('[Storage] Upload complete:', snapshot.ref.fullPath);
+        const url = await getDownloadURL(snapshot.ref);
+        console.log('[Storage] Download URL:', url);
         uploadedUrls.push(url);
       }
 
@@ -99,9 +102,10 @@ export const Products = () => {
         ...prev,
         images: [...prev.images, ...uploadedUrls],
       }));
+      console.log('[Storage] All images uploaded successfully:', uploadedUrls);
     } catch (error) {
-      console.error('Error uploading images:', error);
-      alert('Failed to upload images');
+      console.error('[Storage] UPLOAD ERROR:', error.code, error.message);
+      alert(`Upload failed: ${error.message}`);
     } finally {
       setUploading(false);
     }

@@ -68,12 +68,15 @@ export const Reels = () => {
     setUploading(true);
 
     try {
+      console.log('[Storage] Uploading video:', file.name, file.size, 'bytes');
       const storageRef = ref(
         storage,
         `reels/${user.uid}/${Date.now()}-${file.name}`
       );
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
+      const snapshot = await uploadBytes(storageRef, file);
+      console.log('[Storage] Video upload complete:', snapshot.ref.fullPath);
+      const url = await getDownloadURL(snapshot.ref);
+      console.log('[Storage] Video download URL:', url);
 
       setFormData((prev) => ({
         ...prev,
@@ -81,8 +84,8 @@ export const Reels = () => {
         videoFile: file,
       }));
     } catch (error) {
-      console.error('Error uploading video:', error);
-      alert('Failed to upload video');
+      console.error('[Storage] VIDEO UPLOAD ERROR:', error.code, error.message);
+      alert(`Video upload failed: ${error.message}`);
     } finally {
       setUploading(false);
     }
