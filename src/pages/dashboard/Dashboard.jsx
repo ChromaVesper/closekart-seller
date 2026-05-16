@@ -8,13 +8,17 @@ import {
   Plus,
   ArrowRight,
   FlaskConical,
+  ShieldCheck,
+  AlertCircle,
+  Clock,
+  XCircle,
 } from 'lucide-react';
 import { DashboardLayout } from '../../components/common/DashboardLayout';
 import { useAuth } from '../../hooks/useAuth';
 import { db, storage } from '../../config/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { initializeApp, getApps } from 'firebase/app';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { VerificationBadge } from '../../components/common/VerificationBadge';
 
 export const Dashboard = () => {
   const { user, sellerData } = useAuth();
@@ -152,8 +156,58 @@ export const Dashboard = () => {
     },
   ];
 
+  const status = sellerData?.verificationStatus || 'Pending';
+
+  const VerificationBanner = () => {
+    if (status === 'Approved') return (
+      <div className="mb-6 flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-5 py-3.5">
+        <ShieldCheck size={18} className="text-green-600 flex-shrink-0" />
+        <p className="text-green-800 text-sm font-medium flex-1">
+          🎉 Your shop is <strong>Verified</strong> and visible to all buyers!
+        </p>
+        <VerificationBadge size="sm" />
+      </div>
+    );
+    if (status === 'Pending') return (
+      <div className="mb-6 flex items-start gap-3 bg-yellow-50 border border-yellow-200 rounded-xl px-5 py-3.5">
+        <AlertCircle size={18} className="text-yellow-600 flex-shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <p className="text-yellow-800 text-sm font-semibold">Verification Pending</p>
+          <p className="text-yellow-700 text-xs mt-0.5">Complete your profile so admins can verify your shop.</p>
+        </div>
+        <Link to="/profile" className="flex-shrink-0 text-xs font-bold bg-yellow-500 text-white px-3 py-1.5 rounded-lg hover:bg-yellow-600 transition-colors">
+          Complete Profile →
+        </Link>
+      </div>
+    );
+    if (status === 'Under Review') return (
+      <div className="mb-6 flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-5 py-3.5">
+        <Clock size={18} className="text-blue-600 flex-shrink-0" />
+        <p className="text-blue-800 text-sm font-medium">Your profile is under review. We'll update you soon.</p>
+      </div>
+    );
+    if (status === 'Rejected') return (
+      <div className="mb-6 flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-3.5">
+        <XCircle size={18} className="text-red-600 flex-shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <p className="text-red-800 text-sm font-semibold">Verification Rejected</p>
+          {sellerData?.verificationNotes && (
+            <p className="text-red-700 text-xs mt-0.5">{sellerData.verificationNotes}</p>
+          )}
+        </div>
+        <Link to="/profile" className="flex-shrink-0 text-xs font-bold bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 transition-colors">
+          Update Profile →
+        </Link>
+      </div>
+    );
+    return null;
+  };
+
   return (
     <DashboardLayout>
+      {/* Verification Banner */}
+      <VerificationBanner />
+
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
